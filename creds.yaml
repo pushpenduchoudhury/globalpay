@@ -1,0 +1,17 @@
+credentials:
+  usernames:
+    pushpendu:
+      email: pushpendu@gmail.com
+      name: Pushpendu Choudhury
+      password: $2b$12$hUdAFEOR3Me3DLDLwEiy6.dYWAbb7IY7H49FgHVt7x.PixL6R5Ttq
+    anaranya:
+      email: anaranya@gmail.com
+      name: Anaranya Bhattacharyya
+      password: $2b$12$72ql4.mfOBDFogPrqS9lXe3kh3lIHiLwfSstAzzLXxyB1Ygrfm1mm
+cookie:
+  expiry_days: 30
+  key: cookie1
+  name: temporary_cookie
+preauthorized:
+  emails:
+  - melsby@gmail.com
