@@ -47,12 +47,11 @@ class AMS:
                             INNER JOIN BANK_DIM
                             ON (BANK_ACCOUNTS.BANK_ID = BANK_DIM.BANK_ID)
                             WHERE BANK_ACCOUNTS.CUSTOMER_ID = '{self.customer_id}'"""
-        self.df_account = self.db.select_df(account_query)
         
+        self.df_account = self.db.select_df(account_query)
         self.accounts = self.df_account["ACCOUNT_NUMBER"].to_list()
         
-        
-        self.df_transaction_history = self.get_statement(st.session_state.n_records if "n_records" in st.session_state else 5)
+        self.df_transaction_history = self.get_statement(st.session_state.n_records if "n_records" in st.session_state else 5, mode = "df")
         
 
     def check_balance(self, account_number, amount = None):
@@ -67,7 +66,7 @@ class AMS:
             return balance, balance_check
     
     
-    def get_statement(self, n_transactions = None):
+    def get_statement(self, n_transactions = None, mode = None):
         transaction_query = f"""
                                 SELECT
                                     TRANSACTION_TIME AS DATE,
@@ -107,22 +106,27 @@ class AMS:
                                 ORDER BY TRANSACTION_TIME DESC
                                 LIMIT {n_transactions if n_transactions is not None else st.session_state.n_records if "n_records" in st.session_state else 5}"""
         
-        df_statement = self.db.select(transaction_query)
-        return df_statement
+        if mode == "df":
+            statement = self.db.select_df(transaction_query)
+        else:
+            statement = self.db.select(transaction_query)
+        
+        return statement
     
     
     def generate_statement_pdf(self, n_transactions):
         from fpdf import FPDF
         
-        df_statement = self.get_statement(n_transactions)
+        statement, columns = self.get_statement(n_transactions)
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size = 15)
         pdf.cell(200, 10, txt = self.name, ln = 1, align = 'C')
         pdf.cell(200, 10, txt = 'Account(s): '+', '.join(str(item) for item in self.accounts), ln = 1, align = 'C')
         pdf.set_font("Arial", size = 5)
-        for row in df_statement:
-            pdf.cell(300, 5, txt = str('\t\t\t\t|\t\t'.join(row)), ln = 1, align = 'L')
+        pdf.cell(100, 5, txt = str('\t\t\t\t|\t\t'.join(columns)), ln = 1, align = 'C', border = 1)
+        for row in statement:
+            pdf.cell(100, 5, txt = str('\t\t\t\t|\t\t'.join(row)), ln = 1, align = 'L', border = 1)
         
         output_file = f"{os.getenv('HOME_DIR')}/landing/statement.pdf"
         pdf.output(output_file)

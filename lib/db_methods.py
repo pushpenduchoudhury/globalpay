@@ -28,7 +28,8 @@ class sqlite_db:
         cursor = conn.cursor()
         cursor.execute(query)
         rows = cursor.fetchall()
-        return rows
+        column_names = [description[0] for description in cursor.description]
+        return rows, column_names
     
     def insert_csv(self, csv_file, table_name):
         import csv

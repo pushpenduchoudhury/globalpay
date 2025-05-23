@@ -28,7 +28,7 @@ authenticator.login(location = 'main')
 
 
 if st.session_state.get('authentication_status'):
-    authenticator.logout()
+    authenticator.logout(button_name = "Logout")
     from services.account_management_system import AMS
     email = st.session_state.get("email")
     customer = AMS(email = email)
@@ -41,7 +41,7 @@ if st.session_state.get('authentication_status'):
     
     col1, col2 = st.columns([0.88, 0.12])
     col1.subheader("Recent Transactions", divider = "grey")
-    col2.selectbox(label = "", options = [5, 10, 20], index = 0, key = "n_records")
+    col2.selectbox(label = "Items", options = [5, 10, 20], index = 0, key = "n_records", label_visibility = "collapsed")
     st.dataframe(customer.df_transaction_history, hide_index = True)
     
     
@@ -80,15 +80,14 @@ if st.session_state.get('authentication_status'):
             submit_form = st.form_submit_button(label = "Confirm")
             
             if submit_form:
-                df_transaction_history = customer.get_statement(n_transactions)
+                df_transaction_history = customer.get_statement(n_transactions, mode = "df")
                 st.dataframe(df_transaction_history, hide_index = True)
                 download_file = customer.generate_statement_pdf(n_transactions)
                 with open (download_file, "rb") as f:
                     download_file = f.read()
-                print(download_file)
                 download_flg = True
             
-        st.download_button(label = "Download Statement", data = download_file, file_name = "statement.pdf", mime = 'application/pdf', disabled = not download_flg)
+        st.download_button(label = "Download Statement", data = download_file, file_name = f"Statement_{customer.customer_id}.pdf", mime = 'application/pdf', disabled = not download_flg)
     
     # if send_money_btn:
     with tab2:
@@ -100,7 +99,7 @@ if st.session_state.get('authentication_status'):
             col2.write("")
             col2.markdown("❯❯❯❯")
             to_account = col3.selectbox(label = "To Account", options = customer.df_account["ACCOUNT_NUMBER"].to_list())
-            amount = st.number_input("Amount")
+            amount = st.number_input("Amount", value = None, step = 1, placeholder = "Enter Amount")
             with st.expander(label = "Settings", expanded = True):
                 col1, col2 = st.columns([0.5,0.5])
                 location = col1.selectbox(label = "Location", options = ["Kolkata", "Delhi", "Boston", "Bali", "London", "Moscow"])
