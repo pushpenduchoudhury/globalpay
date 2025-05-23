@@ -40,7 +40,6 @@ class sqlite_db:
                 reader = csv.reader(file)
                 header = next(reader)
 
-                # Create table if it doesn't exist
                 placeholders = ', '.join(['?'] * len(header))
 
                 # Insert data row by row

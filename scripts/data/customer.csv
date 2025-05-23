@@ -1,3 +1,3 @@
 CUSTOMER_ID,FIRST_NAME,LAST_NAME,ROLE,EMAIL_ID,PHONE_NUMBER,ADDRESS,GEO_LOCATION_ID,DEVICE_ID
-CUST_0001,Pushpendu,Choudhury,USER,pushpendu@gmail.com,9836761893,Kolkata,22.572645-88.363892,10.12.42.12
-CUST_0002,Anaranya,Bhattacharyya,USER,anaranya@gmail.com,1234567890,Kolkata,21.572645-90.363892,10.15.123.12
+CUST_0001,Pushpendu,Choudhury,USER,pushpendu@gmail.com,9836761893,Kolkata,22.572645-88.363892,Mobile: 10.12.42.12
+CUST_0002,Anaranya,Bhattacharyya,USER,anaranya@gmail.com,1234567890,Kolkata,21.572645-90.363892,Browser: 10.15.123.12

@@ -26,7 +26,7 @@ class AMS:
                                 DEVICE_ID 
                             FROM CUSTOMER 
                             WHERE EMAIL_ID = '{self.email_id}'"""
-        print(customer_query)
+        
         df_customer = self.db.select_df(customer_query)
         
         self.customer_id = str(df_customer['CUSTOMER_ID'][0])
@@ -49,17 +49,33 @@ class AMS:
                             WHERE BANK_ACCOUNTS.CUSTOMER_ID = '{self.customer_id}'"""
         self.df_account = self.db.select_df(account_query)
         
-        list_account_numbers = self.df_account["ACCOUNT_NUMBER"].to_list()
+        self.accounts = self.df_account["ACCOUNT_NUMBER"].to_list()
         
         
+        self.df_transaction_history = self.get_statement(st.session_state.n_records if "n_records" in st.session_state else 5)
+        
+
+    def check_balance(self, account_number, amount = None):
+        balance_query = f"SELECT ACCOUNT_BALANCE FROM BANK_ACCOUNTS WHERE ACCOUNT_NUMBER = '{account_number}'"
+        balance = float(self.db.select_df(balance_query)["ACCOUNT_BALANCE"].iloc[0])
+        
+        if amount is None:
+            return balance
+        else:
+            amount = float(amount)
+            balance_check = True if amount <= balance else False
+            return balance, balance_check
+    
+    
+    def get_statement(self, n_transactions = None):
         transaction_query = f"""
                                 SELECT
                                     TRANSACTION_TIME AS DATE,
                                     DESCRIPTION,
                                     TRANSACTION_ID AS REF,
-                                    CASE WHEN TYPE = 'DEBIT' THEN AMOUNT ELSE '' END AS WITHDRAWAL,
-                                    CASE WHEN TYPE = 'CREDIT' THEN AMOUNT ELSE '' END AS DEPOSIT,
-                                    SOURCE_CLOSING_BALANCE AS BALANCE
+                                    CASE WHEN TYPE = 'DEBIT' THEN CAST(AMOUNT AS CHAR) ELSE '' END AS WITHDRAWAL,
+                                    CASE WHEN TYPE = 'CREDIT' THEN CAST(AMOUNT AS CHAR) ELSE '' END AS DEPOSIT,
+                                    CAST(SOURCE_CLOSING_BALANCE AS CHAR) AS BALANCE
                                 FROM
                                 (
                                     SELECT
@@ -73,7 +89,7 @@ class AMS:
                                         SOURCE_CLOSING_BALANCE,
                                         TRANSACTION_TIME
                                     FROM TRANSACTION_HISTORY
-                                    WHERE SOURCE_ACCOUNT_NUMBER IN ({', '.join(["'{}'".format(value) for value in list_account_numbers])})
+                                    WHERE SOURCE_ACCOUNT_NUMBER IN ({', '.join(["'{}'".format(value) for value in self.accounts])})
                                     UNION ALL
                                     SELECT
                                         TRANSACTION_ID,
@@ -86,20 +102,30 @@ class AMS:
                                         SOURCE_CLOSING_BALANCE,
                                         TRANSACTION_TIME
                                     FROM TRANSACTION_HISTORY
-                                    WHERE TARGET_ACCOUNT_NUMBER IN ({', '.join(["'{}'".format(value) for value in list_account_numbers])})
+                                    WHERE TARGET_ACCOUNT_NUMBER IN ({', '.join(["'{}'".format(value) for value in self.accounts])})
                                 )
                                 ORDER BY TRANSACTION_TIME DESC
-                                LIMIT {st.session_state.n_records if "n_records" in st.session_state else 5}"""
+                                LIMIT {n_transactions if n_transactions is not None else st.session_state.n_records if "n_records" in st.session_state else 5}"""
         
-        self.df_transaction_history = self.db.select_df(transaction_query)
-        
-        
-        # for i in len(df_account):
-            
-        # self.account_details = {}
-        # for account_number, account_balance in result:
-        #     self.account_details[account_number] = self.account_details.get(account_number, []) + [account_balance]
-
-        
+        df_statement = self.db.select(transaction_query)
+        return df_statement
     
     
+    def generate_statement_pdf(self, n_transactions):
+        from fpdf import FPDF
+        
+        df_statement = self.get_statement(n_transactions)
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size = 15)
+        pdf.cell(200, 10, txt = self.name, ln = 1, align = 'C')
+        pdf.cell(200, 10, txt = 'Account(s): '+', '.join(str(item) for item in self.accounts), ln = 1, align = 'C')
+        pdf.set_font("Arial", size = 5)
+        for row in df_statement:
+            pdf.cell(300, 5, txt = str('\t\t\t\t|\t\t'.join(row)), ln = 1, align = 'L')
+        
+        output_file = f"{os.getenv('HOME_DIR')}/landing/statement.pdf"
+        pdf.output(output_file)
+        return output_file
+        
+        
