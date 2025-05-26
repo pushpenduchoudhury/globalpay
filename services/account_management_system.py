@@ -53,13 +53,13 @@ class AMS:
             self.df_account = self.db.select_df(account_query)
             self.accounts = self.df_account["ACCOUNT_NUMBER"].to_list()
             
-            self.df_transaction_history = self.get_statement(st.session_state.n_records if "n_records" in st.session_state else 5, mode = "df")
+            # self.df_transaction_history = self.get_statement(st.session_state.n_records if "n_records" in st.session_state else 5, mode = "df")
         
         if account_number is not None:
             customer_details_query = f"""SELECT
                         BANK_DIM.BANK_NAME,
+                        BANK_DIM.BANK_ID,
                         BANK_ACCOUNTS.CUSTOMER_ID,
-                        CUSTOMER.CUSTOMER_ID, 
                         CUSTOMER.FIRST_NAME, 
                         CUSTOMER.LAST_NAME, 
                         CUSTOMER.ROLE, 
@@ -67,7 +67,7 @@ class AMS:
                         CUSTOMER.PHONE_NUMBER, 
                         CUSTOMER.ADDRESS, 
                         CUSTOMER.GEO_LOCATION_ID, 
-                        CUSTOMER.DEVICE_ID
+                        CUSTOMER.DEVICE_ID,
                         BANK_ACCOUNTS.ACCOUNT_NUMBER, 
                         BANK_ACCOUNTS.ACCOUNT_TYPE, 
                         BANK_ACCOUNTS.ACCOUNT_BALANCE
@@ -90,11 +90,15 @@ class AMS:
             self.account_type = str(df_customer['ACCOUNT_TYPE'][0])
             self.account_balance = str(df_customer['ACCOUNT_BALANCE'][0])
             self.bank_name = str(df_customer['BANK_NAME'][0])
+            self.bank_id = str(df_customer['BANK_ID'][0])
         
         
     def check_balance(self, account_number, amount = None):
         balance_query = f"SELECT ACCOUNT_BALANCE FROM BANK_ACCOUNTS WHERE ACCOUNT_NUMBER = '{account_number}'"
-        balance = float(self.db.select_df(balance_query)["ACCOUNT_BALANCE"].iloc[0])
+        balance = self.db.select_df(balance_query)["ACCOUNT_BALANCE"][0]
+        balance = float(balance)
+        
+        
         
         if amount is None:
             return balance
@@ -104,7 +108,8 @@ class AMS:
             return balance, balance_check
     
     
-    def get_statement(self, n_transactions = None, mode = None):
+    def get_statement(self, account_number, n_transactions = None, mode = None):
+        
         transaction_query = f"""
                                 SELECT
                                     TRANSACTION_TIME AS DATE,
@@ -126,7 +131,7 @@ class AMS:
                                         SOURCE_CLOSING_BALANCE,
                                         TRANSACTION_TIME
                                     FROM TRANSACTION_HISTORY
-                                    WHERE SOURCE_ACCOUNT_NUMBER IN ({', '.join(["'{}'".format(value) for value in self.accounts])})
+                                    WHERE SOURCE_ACCOUNT_NUMBER = '{account_number}'
                                     UNION ALL
                                     SELECT
                                         TRANSACTION_ID,
@@ -135,11 +140,11 @@ class AMS:
                                         DESCRIPTION,
                                         AMOUNT,
                                         'CREDIT' AS TYPE,
-                                        SOURCE_OPENING_BALANCE,
-                                        SOURCE_CLOSING_BALANCE,
+                                        TARGET_OPENING_BALANCE,
+                                        TARGET_CLOSING_BALANCE,
                                         TRANSACTION_TIME
                                     FROM TRANSACTION_HISTORY
-                                    WHERE TARGET_ACCOUNT_NUMBER IN ({', '.join(["'{}'".format(value) for value in self.accounts])})
+                                    WHERE TARGET_ACCOUNT_NUMBER = '{account_number}'
                                 )
                                 ORDER BY TRANSACTION_TIME DESC
                                 LIMIT {n_transactions if n_transactions is not None else st.session_state.n_records if "n_records" in st.session_state else 5}"""
@@ -152,15 +157,15 @@ class AMS:
         return statement
     
     
-    def generate_statement_pdf(self, n_transactions):
+    def generate_statement_pdf(self, account_number, n_transactions):
         from fpdf import FPDF
         
-        statement, columns = self.get_statement(n_transactions)
+        statement, columns = self.get_statement(account_number, n_transactions)
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size = 15)
         pdf.cell(200, 10, txt = self.name, ln = 1, align = 'C')
-        pdf.cell(200, 10, txt = 'Account(s): '+', '.join(str(item) for item in self.accounts), ln = 1, align = 'C')
+        pdf.cell(200, 10, txt = f'Account: {account_number}', ln = 1, align = 'C')
         pdf.set_font("Arial", size = 5)
         pdf.cell(100, 5, txt = str('\t\t\t\t|\t\t'.join(columns)), ln = 1, align = 'C', border = 1)
         for row in statement:
@@ -170,4 +175,18 @@ class AMS:
         pdf.output(output_file)
         return output_file
         
+    def get_beneficiaries(self):
+        # account_query = f"""SELECT 
+        #                         CUSTOMER.FIRST_NAME || ' - ' || BANK_ACCOUNTS.ACCOUNT_NUMBER || ' (' || BANK_DIM.BANK_NAME || ')' AS BENEFICIARY
+        #                     FROM BANK_ACCOUNTS
+        #                     INNER JOIN CUSTOMER
+        #                     ON BANK_ACCOUNTS.CUSTOMER_ID = CUSTOMER.CUSTOMER_ID
+        #                     INNER JOIN BANK_DIM
+        #                     ON BANK_ACCOUNTS.BANK_ID = BANK_DIM.BANK_ID"""
         
+        account_query = f"""SELECT 
+                                ACCOUNT_NUMBER AS BENEFICIARY
+                            FROM BANK_ACCOUNTS"""
+        
+        beneficiaries = self.db.select_df(account_query)["BENEFICIARY"].to_list()
+        return beneficiaries

@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit_authenticator as stauth
 from lib import utils
+import subprocess
 
 config = utils.get_config()
 
@@ -42,7 +43,10 @@ if st.session_state.get('authentication_status'):
     col1, col2 = st.columns([0.88, 0.12])
     col1.subheader("Recent Transactions", divider = "grey")
     col2.selectbox(label = "Items", options = [5, 10, 20], index = 0, key = "n_records", label_visibility = "collapsed")
-    st.dataframe(customer.df_transaction_history, hide_index = True)
+    
+    for account in customer.accounts:
+        st.markdown(f"##### Account: {account}")
+        st.dataframe(customer.get_statement(account_number = account, n_transactions = st.session_state.n_records if "n_records" in st.session_state else 5, mode = "df"), hide_index = True)
     
     
     #         css = """.st-emotion-cache-7czcpc {
@@ -76,13 +80,14 @@ if st.session_state.get('authentication_status'):
             download_file = ""
             st.subheader('Get Statement', divider = "red")
             col1, col2 = st.columns([0.5, 0.5])
-            n_transactions = col1.number_input(label = "Number of Transactions", min_value = 1, max_value = 100, value = 5)
+            account = col1.selectbox("Account", options = customer.accounts)
+            n_transactions = col2.number_input(label = "Number of Transactions", min_value = 1, max_value = 100, value = 5)
             submit_form = st.form_submit_button(label = "Confirm")
             
             if submit_form:
-                df_transaction_history = customer.get_statement(n_transactions, mode = "df")
+                df_transaction_history = customer.get_statement(account_number = account, n_transactions = n_transactions, mode = "df")
                 st.dataframe(df_transaction_history, hide_index = True)
-                download_file = customer.generate_statement_pdf(n_transactions)
+                download_file = customer.generate_statement_pdf(account_number = account, n_transactions = n_transactions)
                 with open (download_file, "rb") as f:
                     download_file = f.read()
                 download_flg = True
@@ -94,12 +99,16 @@ if st.session_state.get('authentication_status'):
         with st.form(key = 'send_money_form', clear_on_submit = True):
             st.subheader('Transact', divider = "red")
             col1, col2, col3 = st.columns([0.45, 0.1, 0.45])
-            from_account = col1.selectbox(label = "From Account", options = customer.df_account["ACCOUNT_NUMBER"].to_list())
+            account_list = customer.accounts
+            from_account = col1.selectbox(label = "From Account", options = account_list)
             col2.write("")
             col2.write("")
             col2.markdown("❯❯❯❯")
-            to_account = col3.selectbox(label = "To Account", options = customer.df_account["ACCOUNT_NUMBER"].to_list(), index = 1)
-            amount = st.number_input("Amount", value = None, step = 1, placeholder = "Enter Amount")
+            beneficiaries = customer.get_beneficiaries()
+            to_account = col3.selectbox(label = "To Account", options = beneficiaries)
+            
+            amount = st.number_input("Amount", value = None, placeholder = "Enter Amount")
+            description = st.selectbox("Description", options = ['Online Transfer', 'Grocery Store Purchase', 'Restaurant Bill Payment', 'Netflix Subscription', 'Amazon.com Purchase', 'Rent Payment', 'Utility Bill Payment', 'Gas Station Purchase', 'Coffee Shop Purchase', 'Salary Deposit', 'Interest Earned', 'Credit Card Payment', 'ACH Transfer from Jane Doe', 'PayPal Transfer Received', 'Walmart Purchase', 'Target Purchase', 'Mobile Phone Bill', 'Insurance Payment'])
             with st.expander(label = "Settings", expanded = False):
                 col1, col2 = st.columns([0.5,0.5])
                 location = col1.selectbox(label = "Location", options = ["Kolkata", "Delhi", "Boston", "Bali", "London", "Moscow"])
@@ -113,20 +122,48 @@ if st.session_state.get('authentication_status'):
                     st.error("Sender and Receiver Account cannot be the same..!")
                 
                 # Check 2
-                if amount is None:
+                elif amount is None:
                     st.error("Please enter an amount to transfer..!")
                 
-                # Check 3
-                balance, balance_check = customer.check_balance(from_account, amount)
+                else:
+                    from services.transaction_processing_engine import TPE
+                    transaction = TPE(from_account, to_account, amount, description, location, device)
+                    transaction.send_money(amount = amount)
+                    
                 
-                st.info(f"Account Balance: {balance}")
-                st.info(f"Transfer Status: {balance_check}")
-                
-                if balance_check:
-                    transaction_id = send_money(from_account, to_account, amount, location = None, device = None)
-                
-                
+    with st.sidebar:
+        st.subheader("Datasets", divider = "red")
+        btn_customer = st.button("Reset Customer")      
+        btn_bank_dim = st.button("Reset Bank Dim")      
+        btn_bank_accounts = st.button("Reset Bank Accounts")      
+        btn_transaction_history = st.button("Reset Transaction History")      
+        
+        def run_subprocess(command):
+            print(f"Executing Command: {command}")
+            subprocess.run(command, shell = True, text = True)
+            
+        if btn_customer:
+            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'load_customer.py')}"
+            run_subprocess(command)
+            st.rerun()
+        
+        if btn_bank_dim:
+            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'bank_dim.py')}"
+            run_subprocess(command)
+            st.rerun()
+        
+        if btn_bank_accounts:
+            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'load_bank_accounts.py')}"
+            run_subprocess(command)
+            st.rerun()
+        
+        if btn_transaction_history:
+            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'load_transaction_history.py')}"
+            run_subprocess(command)
+            st.rerun()
+        
 elif st.session_state.get('authentication_status') is False:
     st.error('Username/password is incorrect')
 elif st.session_state.get('authentication_status') is None:
     st.info('ⓘ Please enter your username and password')
+

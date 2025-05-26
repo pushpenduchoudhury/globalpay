@@ -20,6 +20,7 @@ TZ = tzone(TIMEZONE)
 HOME_DIR = os.getenv("HOME_DIR")
 LOG_DIR = os.getenv("LOG_DIR")
 DB_DIR = os.getenv("DB_DIR")
+SCRIPT_DIR = os.getenv("SCRIPT_DIR")
 
 
 def get_path(path_str, file = None):
