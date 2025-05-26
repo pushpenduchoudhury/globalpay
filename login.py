@@ -98,15 +98,34 @@ if st.session_state.get('authentication_status'):
             col2.write("")
             col2.write("")
             col2.markdown("❯❯❯❯")
-            to_account = col3.selectbox(label = "To Account", options = customer.df_account["ACCOUNT_NUMBER"].to_list())
+            to_account = col3.selectbox(label = "To Account", options = customer.df_account["ACCOUNT_NUMBER"].to_list(), index = 1)
             amount = st.number_input("Amount", value = None, step = 1, placeholder = "Enter Amount")
-            with st.expander(label = "Settings", expanded = True):
+            with st.expander(label = "Settings", expanded = False):
                 col1, col2 = st.columns([0.5,0.5])
                 location = col1.selectbox(label = "Location", options = ["Kolkata", "Delhi", "Boston", "Bali", "London", "Moscow"])
                 device = col2.selectbox(label = "Device", options = ["Mobile: 10.12.42.12", "Mobile: 34.134.10.1", "Browser: 56.12.1.7", "Browser: 4.12.6.70"])
             submit_form = st.form_submit_button(label = "Send Money")
             
-    
+            if submit_form:
+                
+                # Check 1
+                if from_account == to_account:
+                    st.error("Sender and Receiver Account cannot be the same..!")
+                
+                # Check 2
+                if amount is None:
+                    st.error("Please enter an amount to transfer..!")
+                
+                # Check 3
+                balance, balance_check = customer.check_balance(from_account, amount)
+                
+                st.info(f"Account Balance: {balance}")
+                st.info(f"Transfer Status: {balance_check}")
+                
+                if balance_check:
+                    transaction_id = send_money(from_account, to_account, amount, location = None, device = None)
+                
+                
 elif st.session_state.get('authentication_status') is False:
     st.error('Username/password is incorrect')
 elif st.session_state.get('authentication_status') is None:

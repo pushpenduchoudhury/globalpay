@@ -10,50 +10,88 @@ from lib.db_methods import sqlite_db
 
 class AMS:
     
-    def __init__(self, email):
+    def __init__(self, email = None, account_number = None):
         self.db = sqlite_db()
         self.email_id = email
+        self.account_number = account_number
         
-        customer_query = f"""SELECT 
-                                CUSTOMER_ID, 
-                                FIRST_NAME, 
-                                LAST_NAME, 
-                                ROLE, 
-                                EMAIL_ID, 
-                                PHONE_NUMBER, 
-                                ADDRESS, 
-                                GEO_LOCATION_ID, 
-                                DEVICE_ID 
-                            FROM CUSTOMER 
-                            WHERE EMAIL_ID = '{self.email_id}'"""
+        if email is not None:
+            customer_query = f"""SELECT 
+                                    CUSTOMER_ID, 
+                                    FIRST_NAME, 
+                                    LAST_NAME, 
+                                    ROLE, 
+                                    EMAIL_ID, 
+                                    PHONE_NUMBER, 
+                                    ADDRESS, 
+                                    GEO_LOCATION_ID, 
+                                    DEVICE_ID 
+                                FROM CUSTOMER 
+                                WHERE EMAIL_ID = '{self.email_id}'"""
+            
+            df_customer = self.db.select_df(customer_query)
+            
+            self.customer_id = str(df_customer['CUSTOMER_ID'][0])
+            self.name = f"{str(df_customer['FIRST_NAME'][0])} {str(df_customer['LAST_NAME'][0])}"
+            self.role = str(df_customer['ROLE'][0])
+            self.phone_number = str(df_customer['PHONE_NUMBER'][0])
+            self.address = str(df_customer['ADDRESS'][0])
+            self.geo_location_id = str(df_customer['GEO_LOCATION_ID'][0])
+            self.device_id = str(df_customer['DEVICE_ID'][0])
+            
+            
+            account_query = f"""SELECT 
+                                    BANK_DIM.BANK_NAME,
+                                    BANK_ACCOUNTS.ACCOUNT_NUMBER, 
+                                    BANK_ACCOUNTS.ACCOUNT_TYPE, 
+                                    BANK_ACCOUNTS.ACCOUNT_BALANCE
+                                FROM BANK_ACCOUNTS 
+                                INNER JOIN BANK_DIM
+                                ON (BANK_ACCOUNTS.BANK_ID = BANK_DIM.BANK_ID)
+                                WHERE BANK_ACCOUNTS.CUSTOMER_ID = '{self.customer_id}'"""
+            
+            self.df_account = self.db.select_df(account_query)
+            self.accounts = self.df_account["ACCOUNT_NUMBER"].to_list()
+            
+            self.df_transaction_history = self.get_statement(st.session_state.n_records if "n_records" in st.session_state else 5, mode = "df")
         
-        df_customer = self.db.select_df(customer_query)
-        
-        self.customer_id = str(df_customer['CUSTOMER_ID'][0])
-        self.name = f"{str(df_customer['FIRST_NAME'][0])} {str(df_customer['LAST_NAME'][0])}"
-        self.role = str(df_customer['ROLE'][0])
-        self.phone_number = str(df_customer['PHONE_NUMBER'][0])
-        self.address = str(df_customer['ADDRESS'][0])
-        self.geo_location_id = str(df_customer['GEO_LOCATION_ID'][0])
-        self.device_id = str(df_customer['DEVICE_ID'][0])
-        
-        
-        account_query = f"""SELECT 
-                                BANK_DIM.BANK_NAME,
-                                BANK_ACCOUNTS.ACCOUNT_NUMBER, 
-                                BANK_ACCOUNTS.ACCOUNT_TYPE, 
-                                BANK_ACCOUNTS.ACCOUNT_BALANCE
-                            FROM BANK_ACCOUNTS 
-                            INNER JOIN BANK_DIM
-                            ON (BANK_ACCOUNTS.BANK_ID = BANK_DIM.BANK_ID)
-                            WHERE BANK_ACCOUNTS.CUSTOMER_ID = '{self.customer_id}'"""
-        
-        self.df_account = self.db.select_df(account_query)
-        self.accounts = self.df_account["ACCOUNT_NUMBER"].to_list()
-        
-        self.df_transaction_history = self.get_statement(st.session_state.n_records if "n_records" in st.session_state else 5, mode = "df")
-        
+        if account_number is not None:
+            customer_details_query = f"""SELECT
+                        BANK_DIM.BANK_NAME,
+                        BANK_ACCOUNTS.CUSTOMER_ID,
+                        CUSTOMER.CUSTOMER_ID, 
+                        CUSTOMER.FIRST_NAME, 
+                        CUSTOMER.LAST_NAME, 
+                        CUSTOMER.ROLE, 
+                        CUSTOMER.EMAIL_ID, 
+                        CUSTOMER.PHONE_NUMBER, 
+                        CUSTOMER.ADDRESS, 
+                        CUSTOMER.GEO_LOCATION_ID, 
+                        CUSTOMER.DEVICE_ID
+                        BANK_ACCOUNTS.ACCOUNT_NUMBER, 
+                        BANK_ACCOUNTS.ACCOUNT_TYPE, 
+                        BANK_ACCOUNTS.ACCOUNT_BALANCE
+                    FROM BANK_ACCOUNTS 
+                    INNER JOIN BANK_DIM
+                    ON (BANK_ACCOUNTS.BANK_ID = BANK_DIM.BANK_ID)
+                    INNER JOIN CUSTOMER
+                    ON (BANK_ACCOUNTS.CUSTOMER_ID = CUSTOMER.CUSTOMER_ID)
+                    WHERE BANK_ACCOUNTS.ACCOUNT_NUMBER = '{self.account_number}'"""
 
+            df_customer = self.db.select_df(customer_details_query)
+            
+            self.customer_id = str(df_customer['CUSTOMER_ID'][0])
+            self.name = f"{str(df_customer['FIRST_NAME'][0])} {str(df_customer['LAST_NAME'][0])}"
+            self.role = str(df_customer['ROLE'][0])
+            self.phone_number = str(df_customer['PHONE_NUMBER'][0])
+            self.address = str(df_customer['ADDRESS'][0])
+            self.geo_location_id = str(df_customer['GEO_LOCATION_ID'][0])
+            self.device_id = str(df_customer['DEVICE_ID'][0])
+            self.account_type = str(df_customer['ACCOUNT_TYPE'][0])
+            self.account_balance = str(df_customer['ACCOUNT_BALANCE'][0])
+            self.bank_name = str(df_customer['BANK_NAME'][0])
+        
+        
     def check_balance(self, account_number, amount = None):
         balance_query = f"SELECT ACCOUNT_BALANCE FROM BANK_ACCOUNTS WHERE ACCOUNT_NUMBER = '{account_number}'"
         balance = float(self.db.select_df(balance_query)["ACCOUNT_BALANCE"].iloc[0])

@@ -6,19 +6,24 @@ parent = os.path.dirname(current)
 sys.path.append(parent)
 
 from lib.db_methods import sqlite_db
+from account_management_system import AMS
 
-class AMS:
+class TPE:
     
-    def __init__(self, customer_id, account_number = None):
+    def __init__(self, from_account, to_account, amount, location = None, device = None):
         self.db = sqlite_db()
-        self.customer_id = customer_id
-        self.account_number = account_number
+        self.from_account = from_account
+        self.to_account = to_account
+        self.amount = amount
+        self.location = location
+        self.device = device
         
-        query_balance = f"SELECT ACCOUNT_BALANCE FROM BANK_ACCOUNTS WHERE CUSTOMER_ID = '{self.customer_id}'"
-        df = self.db.select(query_balance)
-        self.account_balance = df["ACCOUNT_BALANCE"][0]
+        sender_customer = AMS(account_number = self.from_account)
+        receiver_customer = AMS(account_number = self.to_account)
+        
+      
     
-    def get_statement(n_transactions):
+    def send_money(n_transactions):
         ...
     
     
