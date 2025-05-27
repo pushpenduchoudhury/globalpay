@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 import time
 import streamlit as st
 
@@ -9,6 +9,7 @@ sys.path.append(parent)
 
 from lib.db_methods import sqlite_db
 from .account_management_system import AMS
+from .fraud_detection_engine import FDE
 
 class TPE:
     
@@ -26,18 +27,18 @@ class TPE:
         
     
     def debit_balance(self, account_number, amount):
-        self.sender = AMS(account_number = self.from_account)
         self.sender_opening_balance = float(self.sender.account_balance)
         self.sender_closing_balance = float(self.sender.account_balance) - amount
         debit_query = f"UPDATE BANK_ACCOUNTS SET ACCOUNT_BALANCE = {self.sender_closing_balance} WHERE ACCOUNT_NUMBER = {account_number}"
-        self.db.execute(debit_query)
+        status = self.db.execute(debit_query)
+        return status
     
     def credit_balance(self, account_number, amount):
-        self.receiver = AMS(account_number = self.to_account)
         self.receiver_opening_balance = float(self.receiver.account_balance)
         self.receiver_closing_balance = float(self.receiver.account_balance) + amount
         credit_query = f"UPDATE BANK_ACCOUNTS SET ACCOUNT_BALANCE = {self.receiver_closing_balance} WHERE ACCOUNT_NUMBER = {account_number}"
-        self.db.execute(credit_query)
+        status = self.db.execute(credit_query)
+        return status
     
     def next_transaction_id(self):
         last_transaction_id_query = "SELECT MAX(TRANSACTION_ID) AS TRANSACTION_ID FROM TRANSACTION_HISTORY"
@@ -68,8 +69,8 @@ class TPE:
                                 current_timestamp
                             )"""
         
-        self.db.execute(insert_query)
-        return next_transaction_id
+        status = self.db.execute(insert_query)
+        return next_transaction_id, status
         
     
     def log_receive_transaction(self, transaction_id):
@@ -79,54 +80,102 @@ class TPE:
                             STATUS = 'SUCCESS',
                             UPDATED_AT = CURRENT_TIMESTAMP
                         WHERE TRANSACTION_ID = '{transaction_id}'"""
-        self.db.execute(update_query)
+        status = self.db.execute(update_query)
+        return status
         
         
     def send_money(self, amount):
         # Check Balance
         balance, sufficient_balance = self.sender.check_balance(self.sender.account_number, amount)
-        
+        fraud_detection_model = FDE(st.session_state.fraud_detection_model)
+
         if sufficient_balance is True:            
             with st.status("Processing your transaction...", expanded = True, state = "running") as status:
                 sleep = 1
+                progress_step = 20
                 percent_complete = 0
-                my_bar = st.progress(percent_complete, text = "Processing your transaction...")
+                success = ":green[✔] - "
+                fail = ":red[✖] - "
+                alert = ":orange[⚠︎] - "
                 
-                st.markdown("###### Steps:")
-                st.markdown(":grey[Debiting amount from account...]")
-                self.debit_balance(account_number = self.from_account, amount = amount)
-                percent_complete += 25
-                my_bar.progress(percent_complete, text = ":grey[Debiting amount from account...]")
+                progress_bar = st.progress(percent_complete, text = ":grey[Processing transaction...]")
                 time.sleep(sleep)
                 
-                st.markdown(":grey[Logging debit transaction...]")
-                transaction_id = self.log_send_transaction()
-                percent_complete += 25
-                my_bar.progress(percent_complete, text = ":grey[Logging debit transaction...]")
+                progress_bar.progress(percent_complete+2, text = ":grey[Debiting amount from account]")
+                response = self.debit_balance(account_number = self.from_account, amount = amount)
                 time.sleep(sleep)
+                if response:
+                    st.markdown("###### Steps:")
+                    st.markdown(success + ":grey[1. Debited amount from account...]")
+                else:
+                    st.markdown(fail + ":grey[1. Debiting amount from account...]")
+                    status.update(label = "Error debiting from sender...!", state = "error", expanded = True)
                 
-                st.markdown(":grey[Crediting amount to receiver...]")
-                self.credit_balance(account_number = self.to_account, amount = amount)
-                percent_complete += 25
-                my_bar.progress(percent_complete, text = ":grey[Crediting amount to receiver...]")
+                percent_complete += progress_step
+                progress_bar.progress(percent_complete, text = ":grey[Logging debit transaction]")
+                transaction_id, response = self.log_send_transaction()
                 time.sleep(sleep)
+                if response:
+                    st.markdown(success + ":grey[2. Debit transaction logged...]")
+                else:
+                    st.markdown(fail + ":grey[2. Logging debit transaction...]")
+                    status.update(label = "Error in transaction...!", state = "error", expanded = True)
                 
-                st.markdown(":grey[Logging credit transaction...]")
-                self.log_receive_transaction(transaction_id)
-                percent_complete += 25
-                my_bar.progress(percent_complete, text = ":grey[Logging credit transaction...]")
+                percent_complete += progress_step
+                progress_bar.progress(percent_complete, text = ":grey[Crediting amount to receiver]")
+                response = self.credit_balance(account_number = self.to_account, amount = amount)
                 time.sleep(sleep)
+                if response:
+                    st.markdown(success + ":grey[3. Credited amount to receiver...]")
+                else:
+                    st.markdown(fail + ":grey[3. Crediting amount to receiver...]")
+                    status.update(label = "Error crediting to receiver...!", state = "error", expanded = True)
                 
-                status.update(label = "Transaction complete...!", state = "complete", expanded = True)
-                my_bar.progress(percent_complete, text = ":green[Success...!]")
-                st.success(f"Amount of {self.amount} Rs transferred to account {self.to_account} successfully.")
+                percent_complete += progress_step
+                progress_bar.progress(percent_complete, text = ":grey[Logging credit transaction]")
+                response = self.log_receive_transaction(transaction_id)
+                time.sleep(sleep)
+                if response:
+                    st.markdown(success + ":grey[4. Credit transaction logged...]")
+                else:
+                    st.markdown(fail + ":grey[4. Logging credit transaction...]")
+                    status.update(label = "Error in transaction...!", state = "error", expanded = True)
+                
+                percent_complete += progress_step
+                progress_bar.progress(percent_complete, text = ":grey[Checking for fradulent activity]")
+                is_fraud = fraud_detection_model.detect_fraud(self.amount)
+                time.sleep(sleep)
+                if not is_fraud:
+                    st.markdown(success + ":grey[5. No fradulent activity detected...!]")                    
+                    percent_complete += progress_step
+                    status.update(label = "Transaction complete...!", state = "complete", expanded = True)
+                    progress_bar.progress(percent_complete, text = ":green[Success...!]")
+                    st.success(f"Amount of {self.amount} Rs transferred to account {self.to_account} successfully.")
+                else:
+                    st.markdown(alert + ":grey[5. Fradulent activity detected...!]")
+                    status.update(label = "Potential fraud detected...!", state = "error", expanded = True)
+                    st.warning(f"Potential fraud detected in this transaction...!")
+                    
                 st.button("OK", on_click = lambda: st.rerun)
-                time.sleep(sleep + 3)
-                my_bar.empty()
+            #     time.sleep(sleep + 30)
 
-            st.rerun()
+            # st.rerun()
             
         else:
             st.error(f"Insufficient Balance..! Account has {self.sender.account_balance} Rs balance. Cannot transfer amount Rs {self.amount} Rs.")
     
+    def fraud_detection(self):
         
+        step = ""
+        amount = self.amount
+        oldbalanceOrg = self.sender_opening_balance
+        newbalanceOrig = self.sender_closing_balance
+        oldbalanceDest = self.receiver_opening_balance
+        newbalanceDest = self.receiver_closing_balance
+        isFlaggedFraud = False
+        CASH_OUT  = ""
+        DEBIT  = ""
+        PAYMENT  = ""
+        TRANSFER  = ""
+        
+        return True

@@ -21,7 +21,7 @@ HOME_DIR = os.getenv("HOME_DIR")
 LOG_DIR = os.getenv("LOG_DIR")
 DB_DIR = os.getenv("DB_DIR")
 SCRIPT_DIR = os.getenv("SCRIPT_DIR")
-
+MODEL_DIR = os.getenv("MODEL_DIR")
 
 def get_path(path_str, file = None):
     path = Path(path_str) if file is None else Path(path_str, file)
@@ -91,11 +91,9 @@ def base64_decode(encoded_string):
     decoded_string = decode_string_bytes.decode("ascii")
     return decoded_string
 
-def generate_customer_id():
-    return uuid.uuid4().int
-
-def generate_account_number():
-    ...
+def get_models():
+    available_models = os.listdir(get_path_env("MODEL_DIR"))
+    return available_models
     
 def hash_password(password):
     hashed_password = stauth.Hasher.hash(password = password)

@@ -34,17 +34,16 @@ if st.session_state.get('authentication_status'):
     customer = AMS(email = email)
     
     col1, col2 = st.columns([0.88, 0.12])
-    col1.header(f"{customer.name}  \n **Customer ID:** *{customer.customer_id}*  \n **Email:** *{email}*", divider = "red")
-    
+    col1.header(f"{customer.name}  \n **Username:** *{st.session_state.get('username')}*  \n **Customer ID:** *{customer.customer_id}*  \n **Email:** *{email}*", divider = "red")
+
     with col2:
         authenticator.logout(button_name = "Logout")
 
-
-    st.subheader("Bank Accounts", divider = "grey")
+    st.subheader(":blue[Bank Accounts]", divider = "grey")
     st.dataframe(customer.df_account, hide_index = True)
     
     col1, col2 = st.columns([0.88, 0.12])
-    col1.subheader("Recent Transactions", divider = "grey")
+    col1.subheader(":blue[Recent Transactions]", divider = "grey")
     col2.selectbox(label = "Items", options = [5, 10, 20], index = 0, key = "n_records", label_visibility = "collapsed")
     
     for account in customer.accounts:
@@ -60,7 +59,7 @@ if st.session_state.get('authentication_status'):
 #         st.markdown(f'<style>{css}</style>', unsafe_allow_html = True)
 
 
-    st.subheader("Services", divider = "grey")
+    st.subheader(":blue[Services]", divider = "grey")
     
     # cols = st.columns(4)
     
@@ -83,34 +82,40 @@ if st.session_state.get('authentication_status'):
             col1, col2 = st.columns([0.5, 0.5])
             account = col1.selectbox("Account", options = customer.accounts)
             
-            period_list = ["Current month", "Last month", "Last 3 months", "Date Range"]
+            period_list = ["Current month", "Last month", "Past 3 months", "Date Range"]
             with col2:
-                period_selected = st.radio(label = "Statement Period", options = period_list, index = 0, horizontal = True)
-                # n_transactions = col2.number_input(label = "Number of Transactions", min_value = 1, max_value = 100, value = 5)
+                with st.container(border = True):
+                    period_selected = st.radio(label = "Statement Period", options = period_list, index = 0, horizontal = True)
+                    # n_transactions = col2.number_input(label = "Number of Transactions", min_value = 1, max_value = 100, value = 5)
 
-                period = None
-                from_date = None
-                to_date = None
-                confirm_btn = False
-                
-                if period_selected == "Current month":
-                    period = 1
-                elif period_selected == "Last month":
-                    period = 2
-                elif period_selected == "Last 3 months":
-                    period = 3
-                elif period_selected == "Date Range":
+                    period = None
+                    from_date = None
+                    to_date = None
+                    confirm_btn = False
+                    date_enable = False
+                    
+                    if period_selected == "Current month":
+                        period = 1
+                    elif period_selected == "Last month":
+                        period = 2
+                    elif period_selected == "Past 3 months":
+                        period = 3
+                    elif period_selected == "Date Range":
+                        date_enable = True
+                        
                     col3, col4 = st.columns([0.5, 0.5])
-                    from_date = col3.date_input(label = "From", format = "DD-MM-YYYY", value = None)
-                    to_date = col4.date_input(label = "To", format = "DD-MM-YYYY", value = None)
-                
-                if (period is not None) or (from_date is not None and to_date is not None):
-                    confirm_btn = True
+                    from_date = col3.date_input(label = "From", format = "DD-MM-YYYY", value = None, disabled = not date_enable)
+                    to_date = col4.date_input(label = "To", format = "DD-MM-YYYY", value = None, disabled = not date_enable)
+                    
+                    if (period is not None) or (from_date is not None and to_date is not None):
+                        confirm_btn = True
             
             col1.write("")
             col1.write("")
             col1.write("")
-            submit_form = col1.button(label = "Confirm", disabled = not confirm_btn)
+            col1.write("")
+            col1.write("")
+            submit_form = col1.button(label = "Confirm", type = 'primary', disabled = not confirm_btn)
             
             if submit_form:
                 df_transaction_history = customer.get_statement(account_number = account, period = period, from_date = from_date, to_date = to_date, mode = "df")
@@ -125,7 +130,7 @@ if st.session_state.get('authentication_status'):
     with tab_send_money:
         with st.container(key = 'send_money_form', border = True):
             st.subheader('Transact', divider = "red")
-            col1, col2, col3 = st.columns([0.45, 0.1, 0.45])
+            col1, col2, col3 = st.columns([0.45, 0.07, 0.45])
             account_list = customer.accounts
             from_account = col1.selectbox(label = "From Account", options = account_list)
             col2.write("")
@@ -135,17 +140,19 @@ if st.session_state.get('authentication_status'):
             to_account = col3.selectbox(label = "To Account", options = beneficiaries)
             
             send_btn = False            
-            amount = st.number_input("Amount", value = None, placeholder = "Enter Amount")
-            description = st.selectbox("Description", options = ['Online Transfer', 'Grocery Store Purchase', 'Restaurant Bill Payment', 'Netflix Subscription', 'Amazon.com Purchase', 'Rent Payment', 'Utility Bill Payment', 'Gas Station Purchase', 'Coffee Shop Purchase', 'Salary Deposit', 'Interest Earned', 'Credit Card Payment', 'ACH Transfer from Jane Doe', 'PayPal Transfer Received', 'Walmart Purchase', 'Target Purchase', 'Mobile Phone Bill', 'Insurance Payment'])
+            col1, col2 = st.columns([0.5,0.5])
+            amount = col1.number_input("Amount", value = None, placeholder = "Enter Amount")
+            description = col2.selectbox("Description", options = ['Online Transfer', 'Grocery Store Purchase', 'Restaurant Bill Payment', 'Netflix Subscription', 'Amazon.com Purchase', 'Rent Payment', 'Utility Bill Payment', 'Gas Station Purchase', 'Coffee Shop Purchase', 'Salary Deposit', 'Interest Earned', 'Credit Card Payment', 'ACH Transfer from Jane Doe', 'PayPal Transfer Received', 'Walmart Purchase', 'Target Purchase', 'Mobile Phone Bill', 'Insurance Payment'])
+            st.divider()
             with st.expander(label = "Settings", expanded = False):
                 col1, col2 = st.columns([0.5,0.5])
                 location = col1.selectbox(label = "Location", options = ["Kolkata", "Delhi", "Boston", "Bali", "London", "Moscow"])
                 device = col2.selectbox(label = "Device", options = ["Mobile: 10.12.42.12", "Mobile: 34.134.10.1", "Browser: 56.12.1.7", "Browser: 4.12.6.70"])
-            
+                fraud_detection_model = col1.selectbox("Fraud Detection Model", options = utils.get_models(), key = "fraud_detection_model")
             if amount is not None and amount > 0:
                 send_btn = True
                 
-            submit_form = st.button(label = "Send Money", disabled = not send_btn, help = "Click to send money")
+            submit_form = st.button(label = "Send Money", type = "primary", disabled = not send_btn, help = "Click to send money")
             
             if submit_form:
                 

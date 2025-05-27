@@ -17,6 +17,10 @@ class sqlite_db:
         cursor = conn.cursor()
         cursor.execute(query)
         conn.commit()
+        if cursor.rowcount > 0:
+            return True
+        else:
+            return False
         
     def select_df(self, query):
         conn = self.get_connection()
