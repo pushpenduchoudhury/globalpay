@@ -120,7 +120,7 @@ class TPE:
                 status.update(label = "Transaction complete...!", state = "complete", expanded = True)
                 my_bar.progress(percent_complete, text = ":green[Success...!]")
                 st.success(f"Amount of {self.amount} Rs transferred to account {self.to_account} successfully.")
-                st.form_submit_button("OK", on_click = lambda: st.rerun)
+                st.button("OK", on_click = lambda: st.rerun)
                 time.sleep(sleep + 3)
                 my_bar.empty()
 

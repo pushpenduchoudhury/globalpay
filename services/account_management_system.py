@@ -108,7 +108,22 @@ class AMS:
             return balance, balance_check
     
     
-    def get_statement(self, account_number, n_transactions = None, mode = None):
+    def get_statement(self, account_number, n_transactions = None, period = None, from_date = None, to_date = None, mode = None):
+        
+        filter_condition = ""
+        limit_condition = ""
+        
+        if period == 1:
+            filter_condition = "WHERE TRANSACTION_TIME >= DATE('now', 'start of month')"
+        elif period == 2:
+            filter_condition = "WHERE TRANSACTION_TIME >= DATE('now', 'start of month', '-1 month') AND TRANSACTION_TIME < DATE('now', 'start of month')"
+        elif period == 3:
+            filter_condition = "WHERE TRANSACTION_TIME >= DATE('now', 'start of month', '-3 months')"
+        elif from_date is not None and to_date is not None:
+            filter_condition = f"WHERE TRANSACTION_TIME >= DATE('{from_date.strftime('%Y-%m-%d')}') AND TRANSACTION_TIME <= DATE('{to_date.strftime('%Y-%m-%d')}')"
+                
+        if n_transactions is not None:
+            limit_condition = f"LIMIT {n_transactions if n_transactions is not None else st.session_state.n_records if 'n_records' in st.session_state else 5}"
         
         transaction_query = f"""
                                 SELECT
@@ -146,8 +161,7 @@ class AMS:
                                     FROM TRANSACTION_HISTORY
                                     WHERE TARGET_ACCOUNT_NUMBER = '{account_number}'
                                 )
-                                ORDER BY TRANSACTION_TIME DESC
-                                LIMIT {n_transactions if n_transactions is not None else st.session_state.n_records if "n_records" in st.session_state else 5}"""
+                                """ + filter_condition + " ORDER BY TRANSACTION_TIME DESC" + " " + limit_condition
         
         if mode == "df":
             statement = self.db.select_df(transaction_query)
@@ -157,10 +171,10 @@ class AMS:
         return statement
     
     
-    def generate_statement_pdf(self, account_number, n_transactions):
+    def generate_statement_pdf(self, account_number, n_transactions = None, period = None, from_date = None, to_date = None):
         from fpdf import FPDF
         
-        statement, columns = self.get_statement(account_number, n_transactions)
+        statement, columns = self.get_statement(account_number, n_transactions, period = period, from_date = from_date, to_date = to_date)
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size = 15)
