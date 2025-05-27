@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 import streamlit as st
 
 current = os.path.dirname(os.path.realpath(__file__))
@@ -85,15 +86,47 @@ class TPE:
         # Check Balance
         balance, sufficient_balance = self.sender.check_balance(self.sender.account_number, amount)
         
-        if sufficient_balance is True:
-            self.debit_balance(account_number = self.from_account, amount = amount)
-            transaction_id = self.log_send_transaction()
-            self.credit_balance(account_number = self.to_account, amount = amount)
-            self.log_receive_transaction(transaction_id)
-            st.success(f"Amount of {self.amount} Rs transferred to account {self.to_account} successfully.")
+        if sufficient_balance is True:            
+            with st.status("Processing your transaction...", expanded = True, state = "running") as status:
+                sleep = 1
+                percent_complete = 0
+                my_bar = st.progress(percent_complete, text = "Processing your transaction...")
+                
+                st.markdown("###### Steps:")
+                st.markdown(":grey[Debiting amount from account...]")
+                self.debit_balance(account_number = self.from_account, amount = amount)
+                percent_complete += 25
+                my_bar.progress(percent_complete, text = ":grey[Debiting amount from account...]")
+                time.sleep(sleep)
+                
+                st.markdown(":grey[Logging debit transaction...]")
+                transaction_id = self.log_send_transaction()
+                percent_complete += 25
+                my_bar.progress(percent_complete, text = ":grey[Logging debit transaction...]")
+                time.sleep(sleep)
+                
+                st.markdown(":grey[Crediting amount to receiver...]")
+                self.credit_balance(account_number = self.to_account, amount = amount)
+                percent_complete += 25
+                my_bar.progress(percent_complete, text = ":grey[Crediting amount to receiver...]")
+                time.sleep(sleep)
+                
+                st.markdown(":grey[Logging credit transaction...]")
+                self.log_receive_transaction(transaction_id)
+                percent_complete += 25
+                my_bar.progress(percent_complete, text = ":grey[Logging credit transaction...]")
+                time.sleep(sleep)
+                
+                status.update(label = "Transaction complete...!", state = "complete", expanded = True)
+                my_bar.progress(percent_complete, text = ":green[Success...!]")
+                st.success(f"Amount of {self.amount} Rs transferred to account {self.to_account} successfully.")
+                st.form_submit_button("OK", on_click = lambda: st.rerun)
+                time.sleep(sleep + 3)
+                my_bar.empty()
+
             st.rerun()
             
         else:
             st.error(f"Insufficient Balance..! Account has {self.sender.account_balance} Rs balance. Cannot transfer amount Rs {self.amount} Rs.")
     
-    
+        

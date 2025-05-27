@@ -29,13 +29,16 @@ authenticator.login(location = 'main')
 
 
 if st.session_state.get('authentication_status'):
-    authenticator.logout(button_name = "Logout")
     from services.account_management_system import AMS
     email = st.session_state.get("email")
     customer = AMS(email = email)
     
-    st.write(f'Welcome *{customer.name}* ({email})')
-    st.title('Account Details')
+    col1, col2 = st.columns([0.88, 0.12])
+    col1.header(f"{customer.name}  \n **Customer ID:** *{customer.customer_id}*  \n **Email:** *{email}*", divider = "red")
+    
+    with col2:
+        authenticator.logout(button_name = "Logout")
+
 
     st.subheader("Bank Accounts", divider = "grey")
     st.dataframe(customer.df_account, hide_index = True)
@@ -129,7 +132,7 @@ if st.session_state.get('authentication_status'):
                     from services.transaction_processing_engine import TPE
                     transaction = TPE(from_account, to_account, amount, description, location, device)
                     transaction.send_money(amount = amount)
-                    
+        
                 
     with st.sidebar:
         st.subheader("Datasets", divider = "red")
