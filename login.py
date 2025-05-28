@@ -72,6 +72,37 @@ if st.session_state.get('authentication_status'):
     #     st.image("assets/send_money.png", width = 80)
     #     send_money_btn = st.button(label = "Send Money", help = "Send money to others", use_container_width = True)
     
+    with st.sidebar:
+        st.subheader("Datasets", divider = "red")
+        btn_customer = st.button("Reset Customer")      
+        btn_bank_dim = st.button("Reset Bank Dim")      
+        btn_bank_accounts = st.button("Reset Bank Accounts")      
+        btn_transaction_history = st.button("Reset Transaction History")      
+        
+        def run_subprocess(command):
+            print(f"Executing Command: {command}")
+            subprocess.run(command, shell = True, text = True)
+            
+        if btn_customer:
+            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'load_customer.py')}"
+            run_subprocess(command)
+            st.rerun()
+        
+        if btn_bank_dim:
+            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'bank_dim.py')}"
+            run_subprocess(command)
+            st.rerun()
+        
+        if btn_bank_accounts:
+            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'load_bank_accounts.py')}"
+            run_subprocess(command)
+            st.rerun()
+        
+        if btn_transaction_history:
+            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'load_transaction_history.py')}"
+            run_subprocess(command)
+            st.rerun()
+    
     tab_statements, tab_send_money = st.tabs(["Statements", "Send Money"])
 
     with tab_statements:
@@ -148,6 +179,7 @@ if st.session_state.get('authentication_status'):
                 col1, col2 = st.columns([0.5,0.5])
                 location = col1.selectbox(label = "Location", options = ["Kolkata", "Delhi", "Boston", "Bali", "London", "Moscow"])
                 device = col2.selectbox(label = "Device", options = ["Mobile: 10.12.42.12", "Mobile: 34.134.10.1", "Browser: 56.12.1.7", "Browser: 4.12.6.70"])
+                step = col1.number_input(label = "Step", min_value = 0, value = 1, help = "Step in the transaction processing engine")
                 fraud_detection_model = col1.selectbox("Fraud Detection Model", options = utils.get_models(), key = "fraud_detection_model")
             if amount is not None and amount > 0:
                 send_btn = True
@@ -166,41 +198,10 @@ if st.session_state.get('authentication_status'):
                 
                 else:
                     from services.transaction_processing_engine import TPE
-                    transaction = TPE(from_account, to_account, amount, description, location, device)
+                    transaction = TPE(from_account, to_account, amount, description, location, device, step)
                     transaction.send_money(amount = amount)
         
-                
-    with st.sidebar:
-        st.subheader("Datasets", divider = "red")
-        btn_customer = st.button("Reset Customer")      
-        btn_bank_dim = st.button("Reset Bank Dim")      
-        btn_bank_accounts = st.button("Reset Bank Accounts")      
-        btn_transaction_history = st.button("Reset Transaction History")      
-        
-        def run_subprocess(command):
-            print(f"Executing Command: {command}")
-            subprocess.run(command, shell = True, text = True)
-            
-        if btn_customer:
-            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'load_customer.py')}"
-            run_subprocess(command)
-            st.rerun()
-        
-        if btn_bank_dim:
-            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'bank_dim.py')}"
-            run_subprocess(command)
-            st.rerun()
-        
-        if btn_bank_accounts:
-            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'load_bank_accounts.py')}"
-            run_subprocess(command)
-            st.rerun()
-        
-        if btn_transaction_history:
-            command = f"{utils.get_path_env('VENV')} && python {utils.get_path_env('SCRIPT_DIR', 'load_transaction_history.py')}"
-            run_subprocess(command)
-            st.rerun()
-        
+
 elif st.session_state.get('authentication_status') is False:
     st.error('Username/password is incorrect')
 elif st.session_state.get('authentication_status') is None:

@@ -13,7 +13,7 @@ from .fraud_detection_engine import FDE
 
 class TPE:
     
-    def __init__(self, from_account, to_account, amount, description, location = None, device = None):
+    def __init__(self, from_account, to_account, amount, description, location = None, device = None, step = 1):
         self.db = sqlite_db()
         self.from_account = from_account
         self.to_account = to_account
@@ -21,6 +21,7 @@ class TPE:
         self.description = description
         self.location = location
         self.device = device
+        self.step = step
         
         self.sender = AMS(account_number = self.from_account)
         self.receiver = AMS(account_number = self.to_account)
@@ -101,6 +102,7 @@ class TPE:
                 progress_bar = st.progress(percent_complete, text = ":grey[Processing transaction...]")
                 time.sleep(sleep)
                 
+                ####### Debit from sender #######
                 progress_bar.progress(percent_complete+2, text = ":grey[Debiting amount from account]")
                 response = self.debit_balance(account_number = self.from_account, amount = amount)
                 time.sleep(sleep)
@@ -110,7 +112,10 @@ class TPE:
                 else:
                     st.markdown(fail + ":grey[1. Debiting amount from account...]")
                     status.update(label = "Error debiting from sender...!", state = "error", expanded = True)
+                    st.button("OK", on_click = lambda: st.rerun)
+                    st.stop()
                 
+                ####### Log Debit transaction #######    
                 percent_complete += progress_step
                 progress_bar.progress(percent_complete, text = ":grey[Logging debit transaction]")
                 transaction_id, response = self.log_send_transaction()
@@ -120,7 +125,10 @@ class TPE:
                 else:
                     st.markdown(fail + ":grey[2. Logging debit transaction...]")
                     status.update(label = "Error in transaction...!", state = "error", expanded = True)
-                
+                    st.button("OK", on_click = lambda: st.rerun)
+                    st.stop()
+                    
+                ####### Credit to receiver #######    
                 percent_complete += progress_step
                 progress_bar.progress(percent_complete, text = ":grey[Crediting amount to receiver]")
                 response = self.credit_balance(account_number = self.to_account, amount = amount)
@@ -130,20 +138,30 @@ class TPE:
                 else:
                     st.markdown(fail + ":grey[3. Crediting amount to receiver...]")
                     status.update(label = "Error crediting to receiver...!", state = "error", expanded = True)
-                
+                    st.button("OK", on_click = lambda: st.rerun)
+                    st.stop()
+                    
+                ####### Log credit transaction #######    
                 percent_complete += progress_step
                 progress_bar.progress(percent_complete, text = ":grey[Logging credit transaction]")
-                response = self.log_receive_transaction(transaction_id)
+                response = False #self.log_receive_transaction(transaction_id)
                 time.sleep(sleep)
                 if response:
                     st.markdown(success + ":grey[4. Credit transaction logged...]")
                 else:
                     st.markdown(fail + ":grey[4. Logging credit transaction...]")
                     status.update(label = "Error in transaction...!", state = "error", expanded = True)
-                
+                    st.button("OK", on_click = lambda: st.rerun)
+                    st.stop()
+                    
+                ####### Fraud detection #######    
                 percent_complete += progress_step
                 progress_bar.progress(percent_complete, text = ":grey[Checking for fradulent activity]")
-                is_fraud = fraud_detection_model.detect_fraud(self.amount)
+                model_features = [self.step, self.amount,
+                                  self.sender_opening_balance, self.sender_closing_balance,
+                                  self.receiver_opening_balance, self.receiver_closing_balance,
+                                  0, False, False, False, True]
+                is_fraud = fraud_detection_model.predict(*model_features)
                 time.sleep(sleep)
                 if not is_fraud:
                     st.markdown(success + ":grey[5. No fradulent activity detected...!]")                    
@@ -164,18 +182,4 @@ class TPE:
         else:
             st.error(f"Insufficient Balance..! Account has {self.sender.account_balance} Rs balance. Cannot transfer amount Rs {self.amount} Rs.")
     
-    def fraud_detection(self):
-        
-        step = ""
-        amount = self.amount
-        oldbalanceOrg = self.sender_opening_balance
-        newbalanceOrig = self.sender_closing_balance
-        oldbalanceDest = self.receiver_opening_balance
-        newbalanceDest = self.receiver_closing_balance
-        isFlaggedFraud = False
-        CASH_OUT  = ""
-        DEBIT  = ""
-        PAYMENT  = ""
-        TRANSFER  = ""
-        
-        return True
+

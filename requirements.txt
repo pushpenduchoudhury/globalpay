@@ -3,3 +3,4 @@ streamlit-authenticator
 pandas
 python-dotenv
 fpdf
+scikit-learn
